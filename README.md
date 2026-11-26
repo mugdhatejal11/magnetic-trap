@@ -2,7 +2,7 @@
 
 An interactive 3D simulation of a charged particle trapped in Earth's magnetic field (the physics of the Van Allen belts), written for an audience that thinks in code rather than in physics.
 
-**Live demo:** _add your GitHub Pages link here_
+**Live demo:** https://claude.ai/artifact/HJEKKw63tbGLNK9EDAv9RQ
 
 ## What it shows
 
