@@ -1,0 +1,949 @@
+<title>Magnetic Trap</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout concept: one large live stage (the trap), controls directly under it, then a band that
+   explains each of the three motions in software terms. The math is opt-in, behind a disclosure. */
+:root {
+  --bg: #f3f5fa; --surface: #ffffff; --surface-2: #e9eef8;
+  --ink: #0f1a2e; --ink-2: #4a5873; --line: #d5ddec;
+  --accent: #1f5fd6; --accent-ink: #ffffff;
+  --scene-1: #f9fbff; --scene-2: #e1e9f8;
+  --earth: #cddcfb; --earth-line: #6e8fd4;
+  --field: #6a86c6; --field-hi: #1f5fd6;
+  --particle: #e8590c; --aurora: #0e9f6e;
+  --c-fwd: #257de0; --c-side: #f47230;
+  --ok: #0b7a3b; --ok-bg: #dff5e7; --warn: #8a5a00; --warn-bg: #fdf0d2; --bad: #b42318; --bad-bg: #fde3e0;
+  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0a111f; --surface: #101a2e; --surface-2: #172440;
+    --ink: #e8eef9; --ink-2: #9db0cf; --line: #23324f;
+    --accent: #6aa7ff; --accent-ink: #06101f;
+    --scene-1: #0f1c38; --scene-2: #060b16;
+    --earth: #17376b; --earth-line: #4a78c4;
+    --field: #4a74c4; --field-hi: #7db4ff;
+    --particle: #ffb454; --aurora: #3be8a6;
+    --c-fwd: #338ced; --c-side: #e76624;
+    --ok: #53d98a; --ok-bg: #12331f; --warn: #f2b84b; --warn-bg: #3a2d0b; --bad: #ff7a6e; --bad-bg: #40171a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0a111f; --surface: #101a2e; --surface-2: #172440;
+  --ink: #e8eef9; --ink-2: #9db0cf; --line: #23324f;
+  --accent: #6aa7ff; --accent-ink: #06101f;
+  --scene-1: #0f1c38; --scene-2: #060b16;
+  --earth: #17376b; --earth-line: #4a78c4;
+  --field: #4a74c4; --field-hi: #7db4ff;
+  --particle: #ffb454; --aurora: #3be8a6;
+  --c-fwd: #338ced; --c-side: #e76624;
+  --ok: #53d98a; --ok-bg: #12331f; --warn: #f2b84b; --warn-bg: #3a2d0b; --bad: #ff7a6e; --bad-bg: #40171a;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.55 var(--font-sans);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 24px 64px;
+}
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; gap: 32px; }
+.wrap > *, .math-body > *, .loops > *, .checks > *, .figs > *, .methods > *, .lens > *, .ctl-grid > * { min-width: 0; }
+.wrap { grid-template-columns: minmax(0, 1fr); }
+.math-body, .figs, .checks { grid-template-columns: minmax(0, 1fr); }
+.figs { grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); }
+.ctl-grid, .loops, .methods, .lens { grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr)); }
+h1, h2, h3 { margin: 0; font-weight: 600; text-wrap: balance; letter-spacing: -0.01em; }
+h1 { font-size: clamp(2rem, 4.6vw, 2.8rem); line-height: 1.08; }
+h2 { font-size: 1.3rem; line-height: 1.25; }
+h3 { font-size: 1rem; }
+p { margin: 0; }
+.lead { color: var(--ink-2); max-width: 62ch; margin-top: 12px; font-size: 1.05rem; }
+.eyebrow { font: 500 12px/1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 14px; }
+.sec-note { color: var(--ink-2); max-width: 70ch; margin-top: 6px; }
+code, .mono { font-family: var(--font-mono); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* stage */
+.stage { position: relative; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--scene-2); }
+#scene { display: block; width: 100%; height: clamp(360px, 58vw, 620px); cursor: grab; touch-action: pan-y; }
+#scene:active { cursor: grabbing; }
+.hud { position: absolute; pointer-events: none; font: 12px/1.3 var(--font-mono); color: var(--ink-2); }
+.hud-tl { left: 12px; top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+.hud-bl { left: 14px; bottom: 12px; }
+.hud-br { right: 14px; bottom: 12px; text-align: right; max-width: 52%; }
+.chip { display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px; border-radius: 999px; font: 500 13px/1 var(--font-sans); background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
+.chip .ico { font-family: var(--font-mono); font-size: 12px; }
+.chip[data-state="running"] { color: var(--ok); background: var(--ok-bg); border-color: transparent; }
+.chip[data-state="paused"] { color: var(--warn); background: var(--warn-bg); border-color: transparent; }
+.chip[data-state="lost"], .chip[data-state="exploded"] { color: var(--bad); background: var(--bad-bg); border-color: transparent; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px; color: var(--ink-2); font-size: 13px; }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.key { width: 18px; height: 0; border-top: 2px solid currentColor; }
+.key.dash { border-top-style: dashed; }
+.key.dot { width: 9px; height: 9px; border: 0; border-radius: 50%; background: currentColor; }
+.key.ring { width: 11px; height: 11px; border: 2px solid currentColor; border-radius: 50%; }
+.scenario-note { margin-top: 12px; color: var(--ink); max-width: 80ch; min-height: 3em; }
+
+/* panels + controls */
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+.panel > h3 { margin-bottom: 12px; }
+.presets { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill { font: 500 13px/1 var(--font-sans); padding: 9px 13px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; }
+.pill:hover { border-color: var(--accent); }
+.pill[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.ctl-grid { display: grid; gap: 22px 28px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); margin-top: 18px; }
+.ctl { min-width: 0; display: grid; gap: 8px; align-content: start; }
+.ctl label, .ctl .lbl { font-weight: 500; font-size: 14px; display: flex; justify-content: space-between; gap: 10px; }
+.ctl output { font: 500 14px/1.2 var(--font-mono); color: var(--accent); }
+.hint { font-size: 13px; color: var(--ink-2); }
+input[type="range"] { width: 100%; accent-color: var(--accent); margin: 4px 0; }
+.seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; width: fit-content; max-width: 100%; }
+.seg button { font: 500 13px/1 var(--font-sans); padding: 9px 13px; background: transparent; border: 0; border-right: 1px solid var(--line); color: var(--ink-2); cursor: pointer; }
+.seg button:last-child { border-right: 0; }
+.seg button[aria-checked="true"] { background: var(--accent); color: var(--accent-ink); }
+.row-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; }
+.btn { font: 500 13px/1 var(--font-sans); padding: 10px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); cursor: pointer; }
+.btn:hover { border-color: var(--accent); }
+
+/* three loops */
+.loops { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); margin-top: 14px; }
+.loop { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; display: grid; gap: 6px; align-content: start; min-width: 0; }
+.loop .tag { font: 500 12px/1 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
+.loop .big { font: 500 clamp(1.8rem, 4vw, 2.4rem)/1.1 var(--font-mono); font-variant-numeric: tabular-nums; }
+.loop .big small { font-size: 0.45em; color: var(--ink-2); margin-left: 6px; }
+.loop .sub { font-size: 14px; color: var(--ink-2); }
+.loop .sw { font-size: 14px; border-top: 1px solid var(--line); padding-top: 8px; margin-top: 4px; }
+
+/* budget bar */
+.budget { margin-top: 14px; }
+.bar { display: flex; height: 38px; border-radius: 10px; overflow: hidden; background: var(--surface-2); border: 1px solid var(--line); }
+.bar span { display: block; height: 100%; transition: width 0.12s linear; }
+#b-fwd { background: var(--c-fwd); }
+#b-side { background: var(--c-side); }
+.bar-labels { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; font: 500 14px/1.3 var(--font-mono); flex-wrap: wrap; }
+.bar-labels .f { color: var(--c-fwd); }
+.bar-labels .s { color: var(--c-side); }
+.badge { display: inline-flex; gap: 6px; align-items: center; font: 500 13px/1 var(--font-sans); padding: 6px 10px; border-radius: 999px; background: var(--surface-2); color: var(--ink-2); }
+.badge[data-on="true"] { background: var(--warn-bg); color: var(--warn); }
+
+/* code + checks */
+pre.code { margin: 14px 0 0; padding: 16px 18px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); overflow-x: auto; font: 13.5px/1.7 var(--font-mono); color: var(--ink); }
+pre.code .c { color: var(--ink-2); }
+.methods { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); margin-top: 14px; }
+.method { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font-size: 14px; color: var(--ink-2); }
+.method b { display: block; color: var(--ink); font-weight: 600; margin-bottom: 3px; }
+.checks { display: grid; gap: 10px; margin-top: 14px; }
+.check { display: grid; grid-template-columns: auto 1fr auto; gap: 6px 14px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; }
+.check .st { font: 500 12px/1 var(--font-sans); padding: 6px 10px; border-radius: 999px; display: inline-flex; gap: 6px; align-items: center; min-width: 98px; justify-content: center; background: var(--surface-2); color: var(--ink-2); }
+.check[data-s="ok"] .st { background: var(--ok-bg); color: var(--ok); }
+.check[data-s="warn"] .st { background: var(--warn-bg); color: var(--warn); }
+.check[data-s="bad"] .st { background: var(--bad-bg); color: var(--bad); }
+.check .ttl { font-weight: 500; }
+.check .det { grid-column: 2 / 4; font-size: 13.5px; color: var(--ink-2); }
+.check .val { font: 500 14px/1.2 var(--font-mono); text-align: right; font-variant-numeric: tabular-nums; }
+@media (max-width: 560px) { .check { grid-template-columns: 1fr auto; } .check .st { grid-column: 1; grid-row: 1; width: fit-content; } .check .val { grid-column: 2; grid-row: 1; } .check .ttl { grid-column: 1 / 3; } .check .det { grid-column: 1 / 3; } }
+
+/* math disclosure */
+details.math { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+details.math > summary { cursor: pointer; padding: 16px 18px; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+details.math > summary::-webkit-details-marker { display: none; }
+details.math > summary::after { content: "Open"; font: 500 12px/1 var(--font-mono); color: var(--accent); }
+details.math[open] > summary::after { content: "Close"; }
+.math-body { padding: 4px 18px 20px; display: grid; gap: 22px; }
+.eqs { display: grid; gap: 8px; font: 14px/1.6 var(--font-mono); background: var(--surface-2); padding: 14px 16px; border-radius: 12px; border: 1px solid var(--line); overflow-x: auto; }
+.eqs div { white-space: nowrap; }
+.figs { display: grid; gap: 22px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.fig h3 { margin-bottom: 4px; }
+.fig p { font-size: 13.5px; color: var(--ink-2); margin-bottom: 8px; max-width: 60ch; }
+.fig canvas { width: 100%; height: 270px; display: block; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+
+.lens { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); margin-top: 14px; }
+.lens div { border-left: 3px solid var(--accent); padding: 2px 0 2px 14px; }
+.lens b { display: block; margin-bottom: 4px; }
+.lens span { color: var(--ink-2); font-size: 14.5px; }
+.foot { color: var(--ink-2); font-size: 13.5px; max-width: 80ch; border-top: 1px solid var(--line); padding-top: 18px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Simulation / Earth's magnetic field</div>
+    <h1>Magnetic Trap</h1>
+    <p class="lead">A charged particle caught in Earth's magnetic field runs three loops at three very different speeds, and one hidden rule keeps all of them consistent. Drag the scene, change the starting conditions, and watch what the rule forces the particle to do.</p>
+  </header>
+
+  <section aria-label="Live simulation">
+    <div class="stage">
+      <canvas id="scene" tabindex="0" role="img" aria-label="Three-dimensional view of a charged particle spiralling along an Earth magnetic field line and bouncing between the northern and southern hemispheres. Drag to rotate; arrow keys also rotate."></canvas>
+      <div class="hud hud-tl"><div class="chip" id="status" data-state="running" aria-live="polite"><span class="ico" id="status-ico">●</span><span id="status-text">Trapped, bouncing</span></div></div>
+      <div class="hud hud-bl" id="hud-time">t = 0.0</div>
+      <div class="hud hud-br" id="hud-mag"></div>
+    </div>
+    <div class="legend" aria-label="Legend">
+      <span style="color:var(--particle)"><i class="key dot"></i><span style="color:var(--ink-2)">Particle and its trail</span></span>
+      <span style="color:var(--field-hi)"><i class="key"></i><span style="color:var(--ink-2)">The field line it rides on</span></span>
+      <span style="color:var(--field)"><i class="key dash"></i><span style="color:var(--ink-2)">Equator ring (the drift path)</span></span>
+      <span style="color:var(--ink)"><i class="key ring"></i><span style="color:var(--ink-2)">Predicted turning points</span></span>
+      <span style="color:var(--aurora)"><i class="key"></i><span style="color:var(--ink-2)">Where the field line meets the atmosphere</span></span>
+    </div>
+    <p class="scenario-note" id="note"></p>
+  </section>
+
+  <section class="panel" aria-label="Controls">
+    <h3>Try a scenario</h3>
+    <div class="presets" id="presets" role="group" aria-label="Scenarios">
+      <button class="pill" data-p="trapped" aria-pressed="true">Trapped</button>
+      <button class="pill" data-p="aurora" aria-pressed="false">Too aligned: aurora</button>
+      <button class="pill" data-p="hugger" aria-pressed="false">Equator hugger</button>
+      <button class="pill" data-p="euler" aria-pressed="false">Naive solver</button>
+      <button class="pill" data-p="stiff" aria-pressed="false">Big time steps</button>
+    </div>
+    <div class="ctl-grid">
+      <div class="ctl">
+        <label for="pitch">Pitch angle <output id="pitch-o">30°</output></label>
+        <input type="range" id="pitch" min="3" max="88" step="1" value="30">
+        <span class="hint" id="pitch-hint"></span>
+      </div>
+      <div class="ctl">
+        <label for="dist">Distance from Earth <output id="dist-o">4.0 R</output></label>
+        <input type="range" id="dist" min="2" max="7" step="0.5" value="4">
+        <span class="hint">Measured at the equator, in Earth radii (R).</span>
+      </div>
+      <div class="ctl">
+        <span class="lbl">Solver</span>
+        <div class="seg" id="seg-method" role="radiogroup" aria-label="Solver">
+          <button role="radio" data-v="boris" aria-checked="true">Boris</button>
+          <button role="radio" data-v="rk4" aria-checked="false">RK4</button>
+          <button role="radio" data-v="euler" aria-checked="false">Euler</button>
+        </div>
+        <span class="hint" id="method-hint"></span>
+      </div>
+      <div class="ctl">
+        <span class="lbl">Time step</span>
+        <div class="seg" id="seg-step" role="radiogroup" aria-label="Time step">
+          <button role="radio" data-v="careful" aria-checked="true">Careful</button>
+          <button role="radio" data-v="careless" aria-checked="false">Fixed, large</button>
+        </div>
+        <span class="hint" id="step-hint"></span>
+      </div>
+      <div class="ctl">
+        <span class="lbl">Playback speed</span>
+        <div class="seg" id="seg-speed" role="radiogroup" aria-label="Playback speed">
+          <button role="radio" data-v="slow" aria-checked="false">Slow-mo</button>
+          <button role="radio" data-v="normal" aria-checked="true">Normal</button>
+          <button role="radio" data-v="fast" aria-checked="false">Fast</button>
+          <button role="radio" data-v="warp" aria-checked="false">Warp</button>
+        </div>
+        <span class="hint">Warp is for watching the slowest loop (drift) move.</span>
+      </div>
+      <div class="ctl">
+        <span class="lbl">Camera</span>
+        <div class="seg" id="seg-view" role="radiogroup" aria-label="Camera">
+          <button role="radio" data-v="side" aria-checked="false">Side</button>
+          <button role="radio" data-v="tilted" aria-checked="true">Tilted</button>
+          <button role="radio" data-v="top" aria-checked="false">Top</button>
+        </div>
+        <span class="hint">Side shows the bounce. Top shows the drift ring.</span>
+      </div>
+    </div>
+    <div class="row-btns">
+      <button class="btn" id="b-pause">Pause</button>
+      <button class="btn" id="b-restart">Restart</button>
+      <button class="btn" id="b-auto">Auto-rotate: on</button>
+      <button class="btn" id="b-mag">Spiral: magnified ×40</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Three loops, three speeds</h2>
+    <p class="sec-note">Think of the simulation as nested loops. The innermost one is so fast that, at true scale, its circle is smaller than a pixel, so the spiral is drawn magnified.</p>
+    <div class="loops">
+      <div class="loop">
+        <span class="tag">Inner loop: spin</span>
+        <span class="big" id="r-spin">0</span>
+        <span class="sub" id="r-spin-sub"></span>
+        <span class="sw">The field forces the particle into tiny circles around a field line. This is the tick of the whole system.</span>
+      </div>
+      <div class="loop">
+        <span class="tag">Middle loop: bounce</span>
+        <span class="big" id="r-bounce">0<small>round trips</small></span>
+        <span class="sub" id="r-bounce-sub"></span>
+        <span class="sw">While spinning, it slides along the line toward a pole, turns around, and comes back. Like a request that retries between two servers.</span>
+      </div>
+      <div class="loop">
+        <span class="tag">Outer loop: drift</span>
+        <span class="big" id="r-drift">0.00°</span>
+        <span class="sub" id="r-drift-sub"></span>
+        <span class="sw">The whole bouncing pattern slowly creeps around the Earth. You only see it move at Warp speed.</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Why it turns around</h2>
+    <p class="sec-note">Think of the particle's speed as a fixed budget split between two threads: moving forward along the field line, and spinning sideways. The field never adds speed. It only reallocates it. Near the poles the field is stronger, and a stronger field pulls more of the budget into spinning. When the forward share hits zero, there is nothing left to move forward with, so the particle reverses.</p>
+    <div class="budget">
+      <div class="bar" role="img" aria-label="Share of speed going forward versus sideways"><span id="b-fwd" style="width:87%"></span><span id="b-side" style="width:13%"></span></div>
+      <div class="bar-labels">
+        <span class="f">Forward along the line <b id="p-fwd">87%</b></span>
+        <span class="badge" id="turn-badge" data-on="false">Moving forward</span>
+        <span class="s">Spinning sideways <b id="p-side">13%</b></span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>The update rule, and three ways to run it</h2>
+    <p class="sec-note">This is the entire engine. Everything you see comes from repeating three lines.</p>
+<pre class="code"><span class="c"># every step:</span>
+B = field_at(position)             <span class="c"># look up the field where the particle is</span>
+velocity = rotate(velocity, B)     <span class="c"># the field turns the velocity; it never lengthens it</span>
+position = position + velocity * dt</pre>
+    <div class="methods">
+      <div class="method"><b>Boris</b>Implements that middle line literally, as a rotation. A rotation cannot change speed, so the conservation law holds by construction.</div>
+      <div class="method"><b>RK4</b>The textbook high-accuracy solver. It doesn't know the rule, so it leaks speed slowly, and it becomes unstable if the step is too big for the spin.</div>
+      <div class="method"><b>Euler</b>Replaces the rotation with a small sideways nudge. Each nudge adds a sliver of speed, and the slivers compound.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Unit tests running live</h2>
+    <p class="sec-note">Three assertions, checked as the simulation runs. The first two need no answer key, only the rule. The third compares the run to a formula.</p>
+    <div class="checks">
+      <div class="check" id="ck-speed" data-s="wait"><span class="st" id="ck-speed-st">Waiting</span><span class="ttl">Speed is constant</span><span class="val" id="ck-speed-v">-</span><span class="det" id="ck-speed-d">A magnetic field does no work, so the total speed must never change.</span></div>
+      <div class="check" id="ck-mu" data-s="wait"><span class="st" id="ck-mu-st">Waiting</span><span class="ttl">Hidden invariant holds</span><span class="val" id="ck-mu-v">-</span><span class="det" id="ck-mu-d">The quantity (sideways speed)² ÷ (field strength) should stay nearly constant. This is what forces the turnaround.</span></div>
+      <div class="check" id="ck-mir" data-s="wait"><span class="st" id="ck-mir-st">Waiting</span><span class="ttl">Turning point matches theory</span><span class="val" id="ck-mir-v">-</span><span class="det" id="ck-mir-d"></span></div>
+    </div>
+  </section>
+
+  <details class="math" id="math">
+    <summary>Show me the math: two clean graphs and three equations</summary>
+    <div class="math-body">
+      <div class="eqs" aria-label="Equations">
+        <div>1.  μ = v⊥² / 2B  stays constant along the path</div>
+        <div>2.  at the turning point v⊥ = v, so  B(turn) / B₀ = 1 / sin²α₀</div>
+        <div>3.  on a dipole field line  B(λ) / B₀ = √(1 + 3 sin²λ) / cos⁶λ</div>
+      </div>
+      <p class="sec-note" style="margin:0">v⊥ is the sideways speed, α₀ is the pitch angle at the equator, B₀ is the field strength at the equator crossing, and λ is latitude. Equations 2 and 3 together give one number: the latitude where the particle turns around.</p>
+      <div class="figs">
+        <div class="fig">
+          <h3>Where the turning point comes from</h3>
+          <p>The curve is equation 3. The horizontal line is equation 2. Where they cross is the turning point. If that crossing is to the right of the dashed Earth line, it is underground, and the particle hits the atmosphere.</p>
+          <canvas id="figB" aria-label="Graph of field strength against latitude with the turning point marked"></canvas>
+        </div>
+        <div class="fig">
+          <h3>The bounce, measured</h3>
+          <p>Latitude of the particle's spiral center over simulated time. The dashed lines are the predicted turning points from the graph on the left.</p>
+          <canvas id="figS" aria-label="Graph of latitude against time showing the bounce"></canvas>
+        </div>
+      </div>
+    </div>
+  </details>
+
+  <section>
+    <h2>What carries over to software</h2>
+    <div class="lens">
+      <div><b>A conserved quantity is a free unit test</b><span>The speed check above never needs the correct answer, only the rule. If your simulation breaks an invariant, it is wrong even when the animation looks plausible.</span></div>
+      <div><b>The step must fit the fastest loop</b><span>The spin is hundreds of times faster than the bounce, so the spin sets the step size, not the thing you care about. Same story as a stiff system or a tick rate that is too low.</span></div>
+      <div><b>Separated time scales can be collapsed</b><span>Because the spin is so fast and regular, physicists track only the center of the circle and treat the spin as a summary. It's the same trade as caching or batching an inner loop.</span></div>
+    </div>
+  </section>
+
+  <p class="foot">The field shape, the turning points and the loss cone are real physics. The particle is a stand-in: its charge-to-mass ratio is chosen so the spin is much tighter than the field's curvature (which is what makes the textbook theory apply), distances are in Earth radii, and time is in arbitrary units, so the absolute speeds are not those of a real proton or electron.</p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const DEFAULTS = { pitch: 30, L: 4, method: 'boris', careful: true, speed: 'normal', view: 'tilted', magnify: true };
+  const cfg = Object.assign({}, DEFAULTS);
+
+// ===== PHYSICS CORE (copied verbatim into the page) =====
+// Units: Earth radius = 1, field at the surface equator = 1, particle speed = 1.
+// Dipole along z: B = (3xz, 3yz, 3z^2 - r^2) / r^5.   dv/dt = QM * (v x B)
+// QM (charge/mass) is a stand-in value chosen so the spiral is much tighter than the
+// field's curvature, which is what makes the textbook trapping theory apply.
+const QM = 8000;
+const _B = [0, 0, 0];
+function dipoleB(x, y, z, out) {
+  out = out || [0, 0, 0];
+  const r2 = x * x + y * y + z * z, r5 = Math.pow(r2, 2.5);
+  out[0] = 3 * x * z / r5; out[1] = 3 * y * z / r5; out[2] = (3 * z * z - r2) / r5;
+  return out;
+}
+function cross(a, b) {
+  return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+}
+// Boris rotation, scalar form. Rotates v about B by the gyro-angle for time h; |v| is preserved exactly.
+function borisRotate(s, bx, by, bz, h) {
+  const k = 0.5 * h * s.QM;
+  const tx = k * bx, ty = k * by, tz = k * bz;
+  const f = 2 / (1 + tx * tx + ty * ty + tz * tz);
+  const sx = tx * f, sy = ty * f, sz = tz * f;
+  const vx = s.vx, vy = s.vy, vz = s.vz;
+  const px = vx + (vy * tz - vz * ty), py = vy + (vz * tx - vx * tz), pz = vz + (vx * ty - vy * tx);
+  s.vx = vx + (py * sz - pz * sy);
+  s.vy = vy + (pz * sx - px * sz);
+  s.vz = vz + (px * sy - py * sx);
+}
+function makeParticle(L, alphaDeg, method, dt) {
+  const a = alphaDeg * Math.PI / 180;
+  const s = { x: L, y: 0, z: 0, vx: 0, vy: Math.sin(a), vz: Math.cos(a), QM, method, dt, h: dt, t: 0 };
+  if (method === 'boris') { // leapfrog: velocity lives half a step behind position
+    dipoleB(s.x, s.y, s.z, _B);
+    borisRotate(s, _B[0], _B[1], _B[2], -0.5 * dt);
+  }
+  return s;
+}
+function stepParticle(s) {
+  const h = s.h;
+  if (s.method === 'boris') {
+    dipoleB(s.x, s.y, s.z, _B);
+    borisRotate(s, _B[0], _B[1], _B[2], h);
+    s.x += s.vx * h; s.y += s.vy * h; s.z += s.vz * h;
+  } else if (s.method === 'euler') {
+    const c = cross([s.vx, s.vy, s.vz], dipoleB(s.x, s.y, s.z));
+    const nx = s.x + s.vx * h, ny = s.y + s.vy * h, nz = s.z + s.vz * h;
+    s.vx += s.QM * c[0] * h; s.vy += s.QM * c[1] * h; s.vz += s.QM * c[2] * h;
+    s.x = nx; s.y = ny; s.z = nz;
+  } else { // rk4
+    const q = s.QM;
+    const acc = (p, v) => { const c = cross(v, dipoleB(p[0], p[1], p[2])); return [q * c[0], q * c[1], q * c[2]]; };
+    const add = (a, b, f) => [a[0] + f * b[0], a[1] + f * b[1], a[2] + f * b[2]];
+    const p = [s.x, s.y, s.z], v = [s.vx, s.vy, s.vz];
+    const k1v = acc(p, v);
+    const p2 = add(p, v, 0.5 * h), v2 = add(v, k1v, 0.5 * h), k2v = acc(p2, v2);
+    const p3 = add(p, v2, 0.5 * h), v3 = add(v, k2v, 0.5 * h), k3v = acc(p3, v3);
+    const p4 = add(p, v3, h), v4 = add(v, k3v, h), k4v = acc(p4, v4);
+    s.x += h / 6 * (v[0] + 2 * v2[0] + 2 * v3[0] + v4[0]);
+    s.y += h / 6 * (v[1] + 2 * v2[1] + 2 * v3[1] + v4[1]);
+    s.z += h / 6 * (v[2] + 2 * v2[2] + 2 * v3[2] + v4[2]);
+    s.vx += h / 6 * (k1v[0] + 2 * k2v[0] + 2 * k3v[0] + k4v[0]);
+    s.vy += h / 6 * (k1v[1] + 2 * k2v[1] + 2 * k3v[1] + k4v[1]);
+    s.vz += h / 6 * (k1v[2] + 2 * k2v[2] + 2 * k3v[2] + k4v[2]);
+  }
+}
+// Advance to simulated time tEnd. cap > 0 ("careful"): the step shrinks wherever the particle
+// spins fast (step <= cap / gyrofrequency). cap = 0 ("careless"): fixed step s.dt.
+// Returns the number of steps taken; stops early after maxSteps so a frame never freezes.
+function advance(s, tEnd, cap, maxSteps) {
+  let n = 0;
+  while (s.t < tEnd && n < maxSteps) {
+    let h = s.dt;
+    if (cap > 0) {
+      dipoleB(s.x, s.y, s.z, _B);
+      const w = s.QM * Math.sqrt(_B[0] * _B[0] + _B[1] * _B[1] + _B[2] * _B[2]);
+      h = Math.min(s.dt, cap / w);
+    }
+    s.h = h;
+    stepParticle(s);
+    s.t += h;
+    n++;
+  }
+  return n;
+}
+// Centre of the little circle the particle spins around: R = x + (v x B) / (QM |B|^2)
+function guidingCenter(s, out) {
+  dipoleB(s.x, s.y, s.z, _B);
+  const B2 = _B[0] * _B[0] + _B[1] * _B[1] + _B[2] * _B[2];
+  const f = 1 / (s.QM * B2);
+  out[0] = s.x + (s.vy * _B[2] - s.vz * _B[1]) * f;
+  out[1] = s.y + (s.vz * _B[0] - s.vx * _B[2]) * f;
+  out[2] = s.z + (s.vx * _B[1] - s.vy * _B[0]) * f;
+  return out;
+}
+// B(latitude) / B(equator) along a dipole field line
+function bRatio(lam) { return Math.sqrt(1 + 3 * Math.sin(lam) ** 2) / Math.pow(Math.cos(lam), 6); }
+// Latitude (rad) where a particle with equatorial pitch angle alpha (rad) turns around.
+function mirrorLatitude(alpha) {
+  const target = 1 / (Math.sin(alpha) ** 2);
+  let lo = 0, hi = 89.5 * Math.PI / 180;
+  for (let i = 0; i < 80; i++) { const m = 0.5 * (lo + hi); if (bRatio(m) < target) lo = m; else hi = m; }
+  return 0.5 * (lo + hi);
+}
+// Smallest pitch angle (deg) that still turns around above the surface on field line L.
+function lossConeDeg(L) {
+  const lamS = Math.acos(Math.sqrt(1 / L));
+  return Math.asin(Math.sqrt(1 / bRatio(lamS))) * 180 / Math.PI;
+}
+// ===== END PHYSICS CORE =====
+
+
+  const $ = (id) => document.getElementById(id);
+  const D2R = Math.PI / 180;
+  const MAG = 40;
+  const SPEED = { slow: 1.2, normal: 8, fast: 60, warp: 600 };
+  const MAX_STEPS = 40000;
+  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const _Bp = [0, 0, 0];
+  const gcTmp = [0, 0, 0];
+
+  /* ---------- ring buffer of 3D points ---------- */
+  class Ring {
+    constructor(n) { this.n = n; this.a = new Float32Array(n * 3); this.len = 0; this.head = 0; }
+    push(x, y, z) { const i = this.head * 3; this.a[i] = x; this.a[i + 1] = y; this.a[i + 2] = z; this.head = (this.head + 1) % this.n; if (this.len < this.n) this.len++; }
+    idx(k) { return ((this.head - this.len + k + this.n * 2) % this.n) * 3; }
+  }
+
+  /* ---------- simulation state ---------- */
+  let sim = null, paused = false, actualWarp = 0, stripNext = 0;
+
+  function newSim() {
+    const a = cfg.pitch * D2R;
+    const p = makeParticle(cfg.L, cfg.pitch, cfg.method, cfg.careful ? 0.05 : 0.005);
+    const B0 = Math.pow(cfg.L, -3);
+    const lamM = mirrorLatitude(a);
+    const lamS = Math.acos(Math.sqrt(1 / cfg.L));
+    const zPred = cfg.L * Math.pow(Math.cos(lamM), 2) * Math.sin(lamM);
+    sim = {
+      p, status: 'running', speed0: Math.hypot(p.vx, p.vy, p.vz),
+      lamM, lamS, predictLost: lamM > lamS, zPred,
+      phase: 0, nextSample: 0, cross: 0, tFirst: null, armed: false, prevRz: 0,
+      azTot: 0, azPrev: 0, latMax: 0,
+      mu0: Math.pow(Math.sin(a), 2) / (2 * B0), mu: Math.pow(Math.sin(a), 2) / (2 * B0),
+      fwd: Math.pow(Math.cos(a), 2),
+      trailH: new Ring(700), trailG: new Ring(3000), strip: new Ring(500),
+      lastG: [cfg.L, 0, 0], impact: null, flashT0: 0, turnSeen: false
+    };
+    stripNext = 0;
+  }
+
+  function sample() {
+    const p = sim.p;
+    guidingCenter(p, gcTmp);
+    const gx = gcTmp[0], gy = gcTmp[1], gz = gcTmp[2];
+    const k = cfg.magnify ? MAG : 1;
+    sim.trailH.push(gx + k * (p.x - gx), gy + k * (p.y - gy), gz + k * (p.z - gz));
+    const lg = sim.lastG, dx = gx - lg[0], dy = gy - lg[1], dz = gz - lg[2];
+    if (dx * dx + dy * dy + dz * dz > 0.0009) { sim.trailG.push(gx, gy, gz); lg[0] = gx; lg[1] = gy; lg[2] = gz; }
+    // bounce counting: sign changes of the spiral center's height, once it has left the equator region
+    if (!sim.armed && Math.abs(gz) > Math.max(0.004, 0.4 * sim.zPred)) { sim.armed = true; sim.prevRz = gz; }
+    else if (sim.armed && (gz > 0) !== (sim.prevRz > 0)) { sim.cross++; if (sim.tFirst === null) sim.tFirst = p.t; sim.tLast = p.t; sim.prevRz = gz; }
+    // latitude and azimuth of the spiral center
+    const rg = Math.sqrt(gx * gx + gy * gy + gz * gz);
+    const lat = Math.asin(Math.max(-1, Math.min(1, gz / rg)));
+    if (Math.abs(lat) > sim.latMax) sim.latMax = Math.abs(lat);
+    const az = Math.atan2(gy, gx);
+    let d = az - sim.azPrev; if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI;
+    sim.azTot += d; sim.azPrev = az;
+    // magnetic moment and speed budget (smoothed over a few spins)
+    dipoleB(p.x, p.y, p.z, _Bp);
+    const Bm = Math.sqrt(_Bp[0] * _Bp[0] + _Bp[1] * _Bp[1] + _Bp[2] * _Bp[2]);
+    const vpar = (p.vx * _Bp[0] + p.vy * _Bp[1] + p.vz * _Bp[2]) / Bm;
+    const v2 = p.vx * p.vx + p.vy * p.vy + p.vz * p.vz;
+    const vperp2 = Math.max(0, v2 - vpar * vpar);
+    sim.mu += 0.03 * (vperp2 / (2 * Bm) - sim.mu);
+    sim.fwd += 0.03 * (Math.min(1, vpar * vpar / v2) - sim.fwd);
+    // strip chart: one sample per interval of simulated time
+    if (p.t >= stripNext) { sim.strip.push(p.t, lat / D2R, 0); stripNext = p.t + Math.max(0.2, SPEED[cfg.speed] / 20); }
+  }
+
+  function runTo(target, maxSteps) {
+    const p = sim.p, cap = cfg.careful ? 0.2 : 0;
+    let n = 0;
+    while (p.t < target && n < maxSteps) {
+      dipoleB(p.x, p.y, p.z, _Bp);
+      const w = QM * Math.sqrt(_Bp[0] * _Bp[0] + _Bp[1] * _Bp[1] + _Bp[2] * _Bp[2]);
+      let h = p.dt;
+      if (cap > 0) h = Math.min(p.dt, cap / w);
+      p.h = h; stepParticle(p); p.t += h; n++;
+      sim.phase += w * h;
+      const r2 = p.x * p.x + p.y * p.y + p.z * p.z;
+      const v2 = p.vx * p.vx + p.vy * p.vy + p.vz * p.vz;
+      if (!(r2 < 900) || !(v2 < 16)) { sim.status = 'exploded'; break; }
+      if (r2 < 1) { sim.status = 'lost'; sim.impact = [p.x, p.y, p.z]; sim.flashT0 = performance.now(); break; }
+      if (sim.phase >= sim.nextSample) { sample(); sim.nextSample = sim.phase + Math.PI / 4; }
+    }
+    return n;
+  }
+
+  /* ---------- theme ---------- */
+  let TH = {};
+  function readTheme() {
+    const cs = getComputedStyle(document.documentElement);
+    const g = (n) => cs.getPropertyValue(n).trim();
+    TH = { bg1: g('--scene-1'), bg2: g('--scene-2'), earth: g('--earth'), earthLine: g('--earth-line'), field: g('--field'), fieldHi: g('--field-hi'),
+      particle: g('--particle'), aurora: g('--aurora'), ink: g('--ink'), ink2: g('--ink-2'), line: g('--line'), fwd: g('--c-fwd'), side: g('--c-side'), surface: g('--surface') };
+  }
+  function hexRgb(h) { h = h.replace('#', ''); if (h.length === 3) h = h.split('').map((c) => c + c).join(''); return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]; }
+  function rgba(h, a) { const c = hexRgb(h); return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
+  function mix(h1, h2, t) { const a = hexRgb(h1), b = hexRgb(h2); return 'rgb(' + Math.round(a[0] + (b[0] - a[0]) * t) + ',' + Math.round(a[1] + (b[1] - a[1]) * t) + ',' + Math.round(a[2] + (b[2] - a[2]) * t) + ')'; }
+
+  /* ---------- camera + canvas ---------- */
+  const VIEWS = { side: { yaw: -0.35, pitch: 0.05 }, tilted: { yaw: -0.6, pitch: 0.42 }, top: { yaw: -0.3, pitch: 1.45 } };
+  const cam = { yaw: VIEWS.tilted.yaw, pitch: VIEWS.tilted.pitch, ty: VIEWS.tilted.yaw, tp: VIEWS.tilted.pitch, auto: !reduceMotion, drag: false };
+  const canvas = $('scene'), ctx = canvas.getContext('2d');
+  let W = 0, H = 0, DPR = 1, scale = 60, CY = 1, SY = 0, CP = 1, SP = 0, pen = false;
+  const pr = [0, 0, 0, 0];
+
+  function resize() {
+    const r = canvas.getBoundingClientRect();
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = Math.max(1, r.width); H = Math.max(1, r.height);
+    canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
+  }
+  function setupCam() {
+    CY = Math.cos(cam.yaw); SY = Math.sin(cam.yaw); CP = Math.cos(cam.pitch); SP = Math.sin(cam.pitch);
+    scale = Math.min(W / (2 * (cfg.L + 0.8)), H / (2 * (0.75 * cfg.L + 0.8)));
+  }
+  function proj(x, y, z) {
+    const x1 = x * CY - y * SY, y1 = x * SY + y * CY;
+    const syw = z * CP + y1 * SP, d = y1 * CP - z * SP, f = 1 / (1 + d / 60);
+    pr[0] = W / 2 + x1 * scale * f; pr[1] = H / 2 - syw * scale * f; pr[2] = d; pr[3] = x1 * x1 + syw * syw;
+  }
+  function hidden() { return pr[3] < 1 && pr[2] > -Math.sqrt(1 - pr[3]) + 0.002; }
+  function pathAdd(x, y, z) {
+    proj(x, y, z);
+    if (hidden()) { pen = false; return; }
+    if (pen) ctx.lineTo(pr[0], pr[1]); else { ctx.moveTo(pr[0], pr[1]); pen = true; }
+  }
+  function strokeCurve(fn, n) { ctx.beginPath(); pen = false; for (let i = 0; i <= n; i++) fn(i / n); ctx.stroke(); }
+  function drawTrail(ring, color, w0, w1, a1, chunks) {
+    const n = ring.len; if (n < 2) return;
+    const per = Math.max(2, Math.ceil(n / chunks));
+    for (let c0 = 0; c0 < n - 1; c0 += per) {
+      const c1 = Math.min(n - 1, c0 + per), f = c1 / (n - 1);
+      ctx.strokeStyle = rgba(color, a1 * f * f); ctx.lineWidth = w0 + (w1 - w0) * f;
+      ctx.beginPath(); pen = false;
+      for (let k = c0; k <= c1; k++) { const i = ring.idx(k); pathAdd(ring.a[i], ring.a[i + 1], ring.a[i + 2]); }
+      ctx.stroke();
+    }
+  }
+  function fieldPoint(L, phi, lam, out) {
+    const r = L * Math.cos(lam) * Math.cos(lam), c = r * Math.cos(lam);
+    out[0] = c * Math.cos(phi); out[1] = c * Math.sin(phi); out[2] = r * Math.sin(lam);
+  }
+
+  const fp = [0, 0, 0];
+  function drawScene(now) {
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    setupCam();
+    const g = ctx.createRadialGradient(W * 0.5, H * 0.45, 10, W * 0.5, H * 0.5, Math.max(W, H) * 0.75);
+    g.addColorStop(0, TH.bg1); g.addColorStop(1, TH.bg2);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    const L = cfg.L, lamS = sim.lamS;
+
+    // Earth
+    proj(0, 0, 0);
+    const cx = pr[0], cy = pr[1], R = scale;
+    const eg = ctx.createRadialGradient(cx - R * 0.35, cy - R * 0.4, R * 0.1, cx, cy, R);
+    eg.addColorStop(0, mix(TH.earth, '#ffffff', 0.25)); eg.addColorStop(0.7, TH.earth); eg.addColorStop(1, mix(TH.earth, TH.earthLine, 0.7));
+    ctx.fillStyle = eg; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 6.2832); ctx.fill();
+    ctx.strokeStyle = rgba(TH.earthLine, 0.9); ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.strokeStyle = rgba(TH.earthLine, 0.45); ctx.lineWidth = 1;
+    for (const la of [-60, -30, 0, 30, 60]) { const l = la * D2R; strokeCurve((u) => { const t = u * 6.2832; pathAdd(Math.cos(l) * Math.cos(t), Math.cos(l) * Math.sin(t), Math.sin(l)); }, 72); }
+    for (let m = 0; m < 8; m++) { const ph = m * Math.PI / 4; strokeCurve((u) => { const l = (u - 0.5) * Math.PI; pathAdd(Math.cos(l) * Math.cos(ph), Math.cos(l) * Math.sin(ph), Math.sin(l)); }, 36); }
+
+    // equator ring (drift path)
+    ctx.setLineDash([3, 7]); ctx.strokeStyle = rgba(TH.field, 0.55); ctx.lineWidth = 1.2;
+    strokeCurve((u) => { const t = u * 6.2832; pathAdd(L * Math.cos(t), L * Math.sin(t), 0); }, 120);
+    ctx.setLineDash([]);
+
+    // field lines: a faint shell plus the one the particle is on
+    const phi0 = sim.azPrev;
+    for (let m = 1; m < 8; m++) {
+      const ph = phi0 + m * Math.PI / 4;
+      ctx.strokeStyle = rgba(TH.field, 0.26); ctx.lineWidth = 1;
+      strokeCurve((u) => { fieldPoint(L, ph, (u * 2 - 1) * lamS, fp); pathAdd(fp[0], fp[1], fp[2]); }, 56);
+    }
+    ctx.strokeStyle = rgba(TH.fieldHi, 0.9); ctx.lineWidth = 1.7;
+    strokeCurve((u) => { fieldPoint(L, phi0, (u * 2 - 1) * lamS, fp); pathAdd(fp[0], fp[1], fp[2]); }, 80);
+
+    // where the field line meets the atmosphere
+    for (const s of [1, -1]) {
+      const l = s * lamS;
+      ctx.strokeStyle = rgba(TH.aurora, 0.35); ctx.lineWidth = 5;
+      strokeCurve((u) => { const t = u * 6.2832; pathAdd(Math.cos(l) * Math.cos(t), Math.cos(l) * Math.sin(t), Math.sin(l)); }, 90);
+      ctx.strokeStyle = rgba(TH.aurora, 0.95); ctx.lineWidth = 1.6;
+      strokeCurve((u) => { const t = u * 6.2832; pathAdd(Math.cos(l) * Math.cos(t), Math.cos(l) * Math.sin(t), Math.sin(l)); }, 90);
+    }
+
+    // predicted turning points
+    if (!sim.predictLost) {
+      ctx.strokeStyle = TH.ink; ctx.lineWidth = 1.6; ctx.fillStyle = rgba(TH.ink, 0.12);
+      for (const s of [1, -1]) {
+        fieldPoint(L, phi0, s * sim.lamM, fp); proj(fp[0], fp[1], fp[2]);
+        if (!hidden()) { ctx.beginPath(); ctx.arc(pr[0], pr[1], 6, 0, 6.2832); ctx.fill(); ctx.stroke(); }
+      }
+    }
+
+    // trails and particle
+    drawTrail(sim.trailG, TH.particle, 1, 1.6, 0.4, 14);
+    drawTrail(sim.trailH, TH.particle, 1, 2.2, 1, 12);
+    const p = sim.p;
+    guidingCenter(p, gcTmp);
+    const k = cfg.magnify ? MAG : 1;
+    const px = gcTmp[0] + k * (p.x - gcTmp[0]), py = gcTmp[1] + k * (p.y - gcTmp[1]), pz = gcTmp[2] + k * (p.z - gcTmp[2]);
+    if (sim.status !== 'exploded') {
+      proj(px, py, pz);
+      if (!hidden()) {
+        const hg = ctx.createRadialGradient(pr[0], pr[1], 0, pr[0], pr[1], 18);
+        hg.addColorStop(0, rgba(TH.particle, 0.85)); hg.addColorStop(1, rgba(TH.particle, 0));
+        ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(pr[0], pr[1], 18, 0, 6.2832); ctx.fill();
+        ctx.fillStyle = TH.particle; ctx.beginPath(); ctx.arc(pr[0], pr[1], 3.6, 0, 6.2832); ctx.fill();
+      }
+    }
+    // impact flash
+    if (sim.status === 'lost' && sim.impact) {
+      const age = (now - sim.flashT0) / 1000;
+      proj(sim.impact[0], sim.impact[1], sim.impact[2]);
+      for (let i = 0; i < 3; i++) {
+        const a2 = age - i * 0.25; if (a2 < 0 || a2 > 1.6) continue;
+        ctx.strokeStyle = rgba(TH.particle, 0.9 * (1 - a2 / 1.6)); ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(pr[0], pr[1], 6 + 70 * (1 - Math.exp(-a2 * 2.6)), 0, 6.2832); ctx.stroke();
+      }
+    }
+  }
+
+  /* ---------- figures in the math section ---------- */
+  function fit(c) {
+    const r = c.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = Math.max(1, r.width), h = Math.max(1, r.height);
+    c.width = Math.round(w * dpr); c.height = Math.round(h * dpr);
+    const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { g, w, h };
+  }
+  const FONT = "12px 'IBM Plex Mono', ui-monospace, monospace";
+  function axes(g, w, h, m, xt, yt, xlab, ylab) {
+    g.font = FONT; g.textBaseline = 'middle';
+    g.strokeStyle = TH.line; g.fillStyle = TH.ink2; g.lineWidth = 1;
+    g.textAlign = 'right';
+    for (const t of yt) { g.beginPath(); g.moveTo(m.l, t.p); g.lineTo(w - m.r, t.p); g.stroke(); g.fillText(t.s, m.l - 7, t.p); }
+    g.textAlign = 'center'; g.textBaseline = 'top';
+    for (const t of xt) { g.fillText(t.s, t.p, h - m.b + 7); }
+    g.fillText(xlab, m.l + (w - m.l - m.r) / 2, h - 14);
+    g.save(); g.translate(13, m.t + (h - m.t - m.b) / 2); g.rotate(-Math.PI / 2); g.textBaseline = 'middle'; g.fillText(ylab, 0, 0); g.restore();
+    g.strokeStyle = TH.ink2; g.beginPath(); g.moveTo(m.l, m.t); g.lineTo(m.l, h - m.b); g.lineTo(w - m.r, h - m.b); g.stroke();
+  }
+  function drawFigB() {
+    const { g, w, h } = fit($('figB')); const m = { l: 54, r: 14, t: 14, b: 44 };
+    const X = (deg) => m.l + (deg / 70) * (w - m.l - m.r);
+    const Y = (v) => h - m.b - (Math.log10(v) / 3) * (h - m.t - m.b);
+    axes(g, w, h, m, [0, 10, 20, 30, 40, 50, 60, 70].map((d) => ({ p: X(d), s: d + '°' })), [1, 10, 100, 1000].map((v) => ({ p: Y(v), s: String(v) })), 'latitude along the field line', 'B / B₀  (log scale)');
+    const lamSdeg = sim.lamS / D2R, lamMdeg = sim.lamM / D2R, target = 1 / Math.pow(Math.sin(cfg.pitch * D2R), 2);
+    // region below the Earth's surface
+    if (lamSdeg < 70) { g.fillStyle = rgba(TH.ink2, 0.10); g.fillRect(X(lamSdeg), m.t, w - m.r - X(lamSdeg), h - m.t - m.b); }
+    g.setLineDash([5, 5]); g.strokeStyle = TH.ink2; g.lineWidth = 1.2; g.beginPath(); g.moveTo(X(lamSdeg), m.t); g.lineTo(X(lamSdeg), h - m.b); g.stroke(); g.setLineDash([]);
+    g.fillStyle = TH.ink2; g.textAlign = 'left'; g.textBaseline = 'top'; g.font = FONT; g.fillText('Earth', Math.min(X(lamSdeg) + 5, w - 60), m.t + 3); g.fillText('(underground →)', Math.min(X(lamSdeg) + 5, w - 118), m.t + 18);
+    // threshold line
+    g.strokeStyle = TH.side; g.lineWidth = 2; g.beginPath(); g.moveTo(m.l, Y(Math.min(target, 1000))); g.lineTo(w - m.r, Y(Math.min(target, 1000))); g.stroke();
+    g.fillStyle = TH.side; g.textAlign = 'left'; g.textBaseline = 'bottom'; g.fillText('1 / sin²α₀ = ' + target.toFixed(target < 100 ? 1 : 0), m.l + 8, Y(Math.min(target, 1000)) - 4);
+    // curve
+    g.strokeStyle = TH.fwd; g.lineWidth = 2.2; g.beginPath();
+    for (let d = 0; d <= 70; d += 0.5) { const v = bRatio(d * D2R), x = X(d), y = Y(Math.min(v, 1000)); if (d === 0) g.moveTo(x, y); else g.lineTo(x, y); }
+    g.stroke();
+    g.fillStyle = TH.fwd; g.textAlign = 'right'; g.textBaseline = 'bottom'; g.fillText('B(λ) / B₀', X(44) - 6, Y(bRatio(44 * D2R)) - 4);
+    // crossing
+    if (lamMdeg <= 70) {
+      g.fillStyle = TH.surface; g.strokeStyle = TH.ink; g.lineWidth = 2; g.beginPath(); g.arc(X(lamMdeg), Y(Math.min(target, 1000)), 6, 0, 6.2832); g.fill(); g.stroke();
+      g.fillStyle = TH.ink; g.textAlign = lamMdeg > 45 ? 'right' : 'left'; g.textBaseline = 'top';
+      g.fillText('turns at ' + lamMdeg.toFixed(1) + '°', X(lamMdeg) + (lamMdeg > 45 ? -10 : 10), Y(Math.min(target, 1000)) + 8);
+    }
+  }
+  function drawFigS() {
+    const { g, w, h } = fit($('figS')); const m = { l: 54, r: 14, t: 14, b: 44 };
+    const s = sim.strip, n = s.len;
+    const lim = Math.ceil((Math.max(sim.lamS, sim.lamM) / D2R + 4) / 10) * 10;
+    const Y = (v) => m.t + (1 - (v + lim) / (2 * lim)) * (h - m.t - m.b);
+    let t0 = 0, t1 = 20;
+    if (n > 1) { t0 = s.a[s.idx(0)]; t1 = s.a[s.idx(n - 1)]; if (t1 - t0 < 20) t1 = t0 + 20; }
+    const X = (t) => m.l + ((t - t0) / (t1 - t0)) * (w - m.l - m.r);
+    const xt = []; for (let i = 0; i <= 4; i++) { const tv = t0 + (t1 - t0) * i / 4; xt.push({ p: X(tv), s: tv >= 100 ? tv.toFixed(0) : tv.toFixed(1) }); }
+    const yt = []; for (let v = -lim; v <= lim; v += lim / 2) yt.push({ p: Y(v), s: Math.round(v) + '°' });
+    axes(g, w, h, m, xt, yt, 'simulated time (t)', 'latitude of spiral center');
+    if (!sim.predictLost) {
+      g.setLineDash([5, 5]); g.strokeStyle = TH.side; g.lineWidth = 1.6;
+      for (const sgn of [1, -1]) { g.beginPath(); g.moveTo(m.l, Y(sgn * sim.lamM / D2R)); g.lineTo(w - m.r, Y(sgn * sim.lamM / D2R)); g.stroke(); }
+      g.setLineDash([]); g.fillStyle = TH.side; g.font = FONT; g.textAlign = 'right'; g.textBaseline = 'bottom';
+      g.fillText('predicted turn ' + (sim.lamM / D2R).toFixed(1) + '°', w - m.r - 4, Y(sim.lamM / D2R) - 3);
+    }
+    if (n > 1) {
+      g.strokeStyle = TH.fwd; g.lineWidth = 2.2; g.beginPath();
+      for (let k = 0; k < n; k++) { const i = s.idx(k), x = X(s.a[i]), y = Y(s.a[i + 1]); if (k === 0) g.moveTo(x, y); else g.lineTo(x, y); }
+      g.stroke();
+    } else { g.fillStyle = TH.ink2; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('waiting for data…', w / 2, h / 2); }
+  }
+
+  /* ---------- readouts ---------- */
+  const fmtInt = (n) => Math.round(n).toLocaleString('en-US');
+  function fmtPct(x) {
+    const v = x * 100, a = Math.abs(v), s = v >= 0 ? '+' : '−';
+    if (a < 5e-7) return '0.0000 %';
+    if (a < 1) return s + a.toFixed(4) + ' %';
+    if (a < 1000) return s + a.toFixed(2) + ' %';
+    return s + a.toExponential(1) + ' %';
+  }
+  const ST = { ok: '✓ Passing', warn: '! Drifting', bad: '✕ Failing', wait: '… Waiting' };
+  function setCheck(id, s, val, det) {
+    const el = $(id); el.dataset.s = s; $(id + '-st').textContent = ST[s]; $(id + '-v').textContent = val;
+    if (det !== undefined) $(id + '-d').textContent = det;
+  }
+  function updateReadouts() {
+    const p = sim.p;
+    // status chip
+    let st = sim.status, txt = 'Trapped, bouncing', ico = '●';
+    if (paused && st === 'running') { st = 'paused'; txt = 'Paused'; ico = 'Ⅱ'; }
+    else if (st === 'lost') { txt = 'Hit the atmosphere'; ico = '▼'; }
+    else if (st === 'exploded') { txt = 'The simulation blew up'; ico = '✕'; }
+    const chip = $('status'); chip.dataset.state = st; $('status-ico').textContent = ico; $('status-text').textContent = txt;
+    $('hud-time').textContent = 't = ' + p.t.toFixed(1) + (sim.status === 'running' && !paused ? '   ·   ' + (actualWarp >= 100 ? actualWarp.toFixed(0) : actualWarp.toFixed(1)) + ' t/s' : '');
+    $('hud-mag').textContent = cfg.magnify ? 'Spiral drawn ×' + MAG + ' so you can see it' : 'Spiral at true scale (smaller than a pixel)';
+
+    // loops
+    const gyr = sim.phase / (2 * Math.PI);
+    $('r-spin').textContent = fmtInt(gyr);
+    $('r-spin-sub').textContent = 'one spin per ' + (2 * Math.PI / (QM * Math.pow(cfg.L, -3))).toFixed(3) + ' t at the equator, faster near the poles';
+    const rt = sim.cross;
+    $('r-bounce').innerHTML = fmtInt(Math.floor(rt / 2)) + '<small>round trips</small>';
+    let bsub = 'waiting for the first turnaround';
+    if (sim.tFirst !== null) {
+      const T = rt >= 2 ? (sim.tLast - sim.tFirst) / (rt - 1) * 2 : sim.tFirst * 2;
+      bsub = 'one round trip per ≈ ' + T.toFixed(1) + ' t' + (rt >= 2 ? '   ·   ≈ ' + fmtInt(gyr / (rt / 2)) + ' spins per round trip' : '');
+    } else if (sim.predictLost) bsub = 'theory: no round trip, it dives into the atmosphere';
+    $('r-bounce-sub').textContent = bsub;
+    const deg = Math.abs(sim.azTot) / D2R;
+    $('r-drift').textContent = deg.toFixed(deg < 10 ? 2 : 1) + '°';
+    let dsub = 'creeps around the Earth; try Warp';
+    if (p.t > 20 && Math.abs(sim.azTot) > 1e-4) dsub = 'at this rate a full lap takes ≈ ' + fmtInt(2 * Math.PI / (Math.abs(sim.azTot) / p.t)) + ' t, about ' + fmtInt(2 * Math.PI / (Math.abs(sim.azTot) / p.t) / (sim.tFirst !== null ? ((rt >= 2 ? (sim.tLast - sim.tFirst) / (rt - 1) * 2 : sim.tFirst * 2)) : 1e9)) + ' bounces';
+    $('r-drift-sub').textContent = dsub;
+
+    // budget
+    const f = Math.max(0, Math.min(1, sim.fwd));
+    $('b-fwd').style.width = (f * 100).toFixed(1) + '%'; $('b-side').style.width = ((1 - f) * 100).toFixed(1) + '%';
+    $('p-fwd').textContent = (f * 100).toFixed(0) + '%'; $('p-side').textContent = ((1 - f) * 100).toFixed(0) + '%';
+    const turning = f < 0.04 && sim.status === 'running';
+    const bd = $('turn-badge'); bd.dataset.on = String(turning); bd.textContent = turning ? '↻ Turning around' : (sim.status === 'lost' ? '▼ Never turned' : 'Moving forward');
+
+    // checks
+    const drift = Math.hypot(p.vx, p.vy, p.vz) / sim.speed0 - 1, ad = Math.abs(drift);
+    setCheck('ck-speed', ad < 1e-6 ? 'ok' : (ad < 0.01 ? 'warn' : 'bad'), fmtPct(drift));
+    const dmu = sim.mu / sim.mu0 - 1, am = Math.abs(dmu);
+    setCheck('ck-mu', sim.status === 'exploded' ? 'bad' : (am < 0.03 ? 'ok' : (am < 0.15 ? 'warn' : 'bad')), fmtPct(dmu));
+    const latObs = sim.latMax / D2R;
+    if (sim.predictLost) {
+      setCheck('ck-mir', sim.status === 'lost' ? 'ok' : (sim.status === 'exploded' ? 'bad' : 'wait'),
+        sim.status === 'lost' ? 'impact' : '-',
+        'Theory: the turning point is at ' + (sim.lamM / D2R).toFixed(1) + '° latitude, but the atmosphere starts at ' + (sim.lamS / D2R).toFixed(1) + '°. It should hit the atmosphere' + (sim.status === 'lost' ? ', and it did.' : '.'));
+    } else {
+      const pred = sim.lamM / D2R;
+      let s = 'wait', det = 'Theory: turns around at ' + pred.toFixed(1) + '° latitude. Waiting for the first turnaround…';
+      if (sim.cross >= 1) { const e = Math.abs(latObs - pred); s = e < 1 ? 'ok' : (e < 5 ? 'warn' : 'bad'); det = 'Theory: ' + pred.toFixed(1) + '°. Observed: ' + latObs.toFixed(1) + '°.'; }
+      if (sim.status === 'exploded') { s = 'bad'; det = 'Theory: ' + pred.toFixed(1) + '°. The simulation blew up first.'; }
+      setCheck('ck-mir', s, sim.cross >= 1 ? (latObs - pred >= 0 ? '+' : '−') + Math.abs(latObs - pred).toFixed(2) + '°' : '-', det);
+    }
+  }
+
+  function updateNote() {
+    const key = currentPreset();
+    const notes = {
+      trapped: 'A healthy trap. The particle spins around a field line, slides toward a pole, turns around at the predicted latitude, and returns. All three tests pass.',
+      aurora: 'Starting almost straight along the field line leaves it too little sideways speed to turn around before the atmosphere. It dives in. This is the basic mechanism behind auroras, where trapped particles are lost along the field.',
+      hugger: 'Starting almost entirely sideways, the particle has no forward speed to spend, so it hovers near the equator and barely bounces.',
+      euler: 'Same physics, naive solver. Euler nudges the velocity sideways each step, every nudge adds a little speed, and the speed test fails within moments. The animation looks plausible for a second; the unit test catches it instantly.',
+      stiff: 'A better solver with a step that is too large. RK4 runs fine in the weak field near the equator, then blows up as the particle approaches the stronger field near the first turning point. The spin outran the step.'
+    };
+    $('note').textContent = notes[key] || ('Custom run. Theory predicts ' + (sim.predictLost ? 'a dive into the atmosphere.' : 'a turning point at ' + (sim.lamM / D2R).toFixed(1) + '° latitude.') + ' Compare it with what the simulation does below.');
+    document.querySelectorAll('#presets .pill').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.p === key)));
+  }
+
+  /* ---------- controls ---------- */
+  const PRESETS = {
+    trapped: { pitch: 30, L: 4, method: 'boris', careful: true },
+    aurora: { pitch: 3, L: 4, method: 'boris', careful: true },
+    hugger: { pitch: 80, L: 4, method: 'boris', careful: true },
+    euler: { pitch: 30, L: 4, method: 'euler', careful: true },
+    stiff: { pitch: 30, L: 4, method: 'rk4', careful: false }
+  };
+  function currentPreset() {
+    for (const k in PRESETS) { const q = PRESETS[k]; if (q.pitch === cfg.pitch && q.L === cfg.L && q.method === cfg.method && q.careful === cfg.careful) return k; }
+    return null;
+  }
+  const METHOD_HINT = { boris: 'Rotates the velocity. Cannot change speed.', rk4: 'Accurate per step, but unaware of the conservation law.', euler: 'Nudges the velocity sideways. Each nudge adds speed.' };
+  function syncControls() {
+    $('pitch').value = cfg.pitch; $('pitch-o').textContent = cfg.pitch + '°';
+    $('dist').value = cfg.L; $('dist-o').textContent = cfg.L.toFixed(1) + ' R';
+    const lc = lossConeDeg(cfg.L);
+    $('pitch-hint').textContent = (cfg.pitch < lc ? 'Below ' : 'Above ') + lc.toFixed(1) + '° at this distance, ' + (cfg.pitch < lc ? 'the particle dives into the atmosphere. ' : 'the particle turns around in time. ') + '90° starts fully sideways; 0° starts straight along the field.';
+    const set = (id, v) => document.querySelectorAll('#' + id + ' button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === v)));
+    set('seg-method', cfg.method); set('seg-step', cfg.careful ? 'careful' : 'careless'); set('seg-speed', cfg.speed); set('seg-view', cfg.view);
+    $('method-hint').textContent = METHOD_HINT[cfg.method];
+    $('step-hint').textContent = cfg.careful ? 'The step shrinks wherever the particle spins fast.' : 'One fixed step (0.005 t). Fast spin near the poles outruns it.';
+    $('b-mag').textContent = cfg.magnify ? 'Spiral: magnified ×' + MAG : 'Spiral: true scale';
+    $('b-auto').textContent = 'Auto-rotate: ' + (cam.auto ? 'on' : 'off');
+    $('b-pause').textContent = paused ? 'Resume' : 'Pause';
+  }
+  function restart() { newSim(); paused = false; syncControls(); updateNote(); drawMath(true); }
+  function bindControls() {
+    $('pitch').addEventListener('input', (e) => { cfg.pitch = +e.target.value; restart(); });
+    $('dist').addEventListener('input', (e) => { cfg.L = +e.target.value; restart(); });
+    const seg = (id, fn) => $(id).addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { fn(b.dataset.v); } });
+    seg('seg-method', (v) => { cfg.method = v; restart(); });
+    seg('seg-step', (v) => { cfg.careful = v === 'careful'; restart(); });
+    seg('seg-speed', (v) => { cfg.speed = v; syncControls(); });
+    seg('seg-view', (v) => { cfg.view = v; cam.tp = VIEWS[v].pitch; cam.ty = VIEWS[v].yaw; cam.auto = false; syncControls(); });
+    $('presets').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; Object.assign(cfg, PRESETS[b.dataset.p]); restart(); });
+    $('b-pause').addEventListener('click', () => { paused = !paused; syncControls(); });
+    $('b-restart').addEventListener('click', restart);
+    $('b-auto').addEventListener('click', () => { cam.auto = !cam.auto; syncControls(); });
+    $('b-mag').addEventListener('click', () => { cfg.magnify = !cfg.magnify; syncControls(); restart(); });
+    $('math').addEventListener('toggle', () => drawMath(true));
+    // camera drag and keys
+    let last = null;
+    canvas.addEventListener('pointerdown', (e) => { last = [e.clientX, e.clientY]; cam.drag = true; cam.auto = false; canvas.setPointerCapture(e.pointerId); syncControls(); });
+    canvas.addEventListener('pointermove', (e) => {
+      if (!cam.drag || !last) return;
+      cam.ty += (e.clientX - last[0]) * 0.006; cam.yaw = cam.ty;
+      if (e.pointerType !== 'touch') { cam.tp = Math.max(-1.45, Math.min(1.45, cam.tp + (e.clientY - last[1]) * 0.006)); cam.pitch = cam.tp; }
+      last = [e.clientX, e.clientY];
+    });
+    const up = () => { cam.drag = false; last = null; };
+    canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
+    canvas.addEventListener('keydown', (e) => {
+      const d = { ArrowLeft: [-0.12, 0], ArrowRight: [0.12, 0], ArrowUp: [0, 0.08], ArrowDown: [0, -0.08] }[e.key];
+      if (d) { e.preventDefault(); cam.auto = false; cam.ty += d[0]; cam.tp = Math.max(-1.45, Math.min(1.45, cam.tp + d[1])); syncControls(); }
+    });
+  }
+
+  let mathDirty = true;
+  function drawMath(force) { if (force) mathDirty = true; }
+
+  /* ---------- main loop ---------- */
+  let lastTs = 0, lastUi = 0, lastFig = 0;
+  function frame(ts) {
+    const dtReal = Math.min(0.05, Math.max(0, (ts - lastTs) / 1000)); lastTs = ts;
+    if (!paused && sim.status === 'running') {
+      const before = sim.p.t;
+      runTo(before + dtReal * SPEED[cfg.speed], MAX_STEPS);
+      if (dtReal > 0) actualWarp = actualWarp * 0.9 + 0.1 * ((sim.p.t - before) / dtReal);
+    }
+    if (cam.auto && !cam.drag) cam.ty += 0.12 * dtReal;
+    if (!cam.drag) { cam.yaw += (cam.ty - cam.yaw) * 0.12; cam.pitch += (cam.tp - cam.pitch) * 0.12; }
+    drawScene(ts);
+    if (ts - lastUi > 110) { lastUi = ts; updateReadouts(); }
+    if ($('math').open && (mathDirty || ts - lastFig > 250)) { lastFig = ts; mathDirty = false; drawFigB(); drawFigS(); }
+    requestAnimationFrame(frame);
+  }
+
+  function boot() {
+    readTheme(); resize(); newSim(); bindControls(); syncControls();
+    // warm start so the first frame already shows a trail
+    runTo(6, 200000);
+    updateNote(); updateReadouts();
+    window.addEventListener('resize', () => { resize(); mathDirty = true; });
+    if (window.ResizeObserver) new ResizeObserver(() => resize()).observe(canvas);
+    if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readTheme(); mathDirty = true; });
+    new MutationObserver(() => { readTheme(); mathDirty = true; }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class', 'style'] });
+    requestAnimationFrame((t) => { lastTs = t; frame(t); });
+  }
+  boot();
+})();
+</script>
